@@ -104,10 +104,25 @@ main:
 ; Inputs:
 ;   
 delay_ms: 
-delay_ms_outer  mov.w #1000, R15
-delay_ms_inner  dec.w R15
+
+; inner loop timing calculation:
+;   3 cycles per iteration * 332 iterations = 996 cycles
+;   mov.w to setup loop counter: 2 cycles
+;   996 + 2 = 998 --> need two extra nop cycles
+
+                ; setup inner loop counter
+delay_ms_outer  mov.w #332, R15             ; 2 cycles
+
+                ; delay a couple cycles to get timing exact
+                ; TODO: need to verify timing with a scope
+                nop                         ; 1 cycle
+                nop                         ; 1 cycle
+
+                ; decrement inner loop variable
+delay_ms_inner  dec.w R15                   ; 3 cycles per iteration
                 jnz delay_ms_inner
 
+                ; decrement outer loop variable
                 dec.w R14
                 jnz delay_ms_outer
 
