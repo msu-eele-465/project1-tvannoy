@@ -84,6 +84,9 @@ init:
             ; set P1.0 as an output
             bis.b   #BIT0, &P1DIR
 
+            ; set green LED (P6.6) as an output
+            bis.b   #BIT6, &P6DIR
+
             ; Disable low-power mode
             bic.w   #LOCKLPM5,&PM5CTL0
 
