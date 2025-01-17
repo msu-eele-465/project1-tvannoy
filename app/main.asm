@@ -81,7 +81,7 @@ RESET       mov.w   #__STACK_END,SP         ; Initialize stack pointer
 StopWDT     mov.w   #WDTPW+WDTHOLD,&WDTCTL  ; Stop WDT
 
 init:
-            ; set P1.0 as an output
+            ; set red LED (P1.0) as an output
             bis.b   #BIT0, &P1DIR
 
             ; set green LED (P6.6) as an output
