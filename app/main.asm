@@ -87,6 +87,17 @@ init:
             ; Disable low-power mode
             bic.w   #LOCKLPM5,&PM5CTL0
 
+
+main:
+
+            mov.w #1000, R14                ; set delay_ms to delay for 1000 ms (1 s)
+            call #delay_ms
+
+            xor.b   #BIT0,&P1OUT            ; Toggle P1.0 every 0.1s
+
+            jmp main
+            nop
+
 ; delay_ms
 ; Delay for a desired number of ms
 ;
