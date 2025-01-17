@@ -90,6 +90,13 @@ init:
             ; Disable low-power mode
             bic.w   #LOCKLPM5,&PM5CTL0
 
+            call #init_timer
+
+            ; enable global interrupts
+            ; use nop before and after setting GIE bit because the assembler tells us to
+            nop
+            bis.w #GIE, SR
+            nop
 
 main:
 
@@ -131,9 +138,46 @@ delay_ms_inner  dec.w R15                   ; 3 cycles per iteration
 
                 ret
 
+; initialize timer0_b0 to fire interrupts every 1 second
+; 
+; timer0_b0 defaults to compare mode
+init_timer:
+    ; NOTE: this configuration follows the order specified on page 407 (sec 14.2.7)
+    ; of msp430fr4xx/msp430fr2xx family user guide.
+
+            ; disable timer before configuring to avoid unexpected behavior
+            ; setting mode control (MC) to stop mode disables the timer
+            bis.w #MC__STOP, &TB0CTL
+
+            ; set compare register to 32,000 (1 second * 32 cycles/sec = 32,000 cycles)
+            mov.w #32000, &TB0CCR0
+
+            ; enable capture/compare interrupt
+            bis.w #CCIE, &TB0CCTL0
+
+            ; select 32 kHz auxiliary clock as clock source. By default, ACLK = REF0 = 32 kHz
+            bis.w #TBSSEL__ACLK, &TB0CTL
+
+            ; use up counter mode (will reset to 0 at 32,000)
+            bis.w #MC__UP, &TB0CTL
+
+            ret
+
+
+toggle_green_led_isr:
+            ; toggle green led on p6.6
+            xor.b #BIT6, &P6OUT
+
+            ; clear interrupt flag
+            bic.w #CCIFG, &TB0CCTL0
+
+            reti
+
 ;------------------------------------------------------------------------------
 ;           Interrupt Vectors
 ;------------------------------------------------------------------------------
             .sect   RESET_VECTOR            ; MSP430 RESET Vector
             .short  RESET                   ;
-            .end
+
+            .sect TIMER0_B0_VECTOR
+            .short toggle_green_led_isr
