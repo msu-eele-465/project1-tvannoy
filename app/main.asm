@@ -87,6 +87,23 @@ L1          dec.w   R15                     ; Decrement R15
             jnz     L1                      ; Delay over?
             jmp     Mainloop                ; Again
             NOP
+
+
+; delay_ms
+; Delay for a desired number of ms
+;
+; Inputs:
+;   
+delay_ms: 
+delay_ms_outer  mov.w #1000, R15
+delay_ms_inner  dec.w R15
+                jnz delay_ms_inner
+
+                dec.w R14
+                jnz delay_ms_outer
+
+                ret
+
 ;------------------------------------------------------------------------------
 ;           Interrupt Vectors
 ;------------------------------------------------------------------------------
