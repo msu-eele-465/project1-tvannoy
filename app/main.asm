@@ -100,6 +100,7 @@ init:
 
 main:
 
+            ; Median timing of toggling the LED was 1.0011 s
             mov.w #1000, R14                ; set delay_ms to delay for 1000 ms (1 s)
             call #delay_ms
 
@@ -119,18 +120,30 @@ delay_ms:
 ;   3 cycles per iteration * 332 iterations = 996 cycles
 ;   mov.w to setup loop counter: 2 cycles
 ;   996 + 2 = 998 --> need two extra nop cycles
+;
+;   This calculation resulted in a bit less than 1 ms; clock must be slightly
+;   faster than 1 MHz.
+;   Using 347 and two nops resulted in an average of 1.0004 ms :)
 
                 ; setup inner loop counter
-delay_ms_outer  mov.w #332, R15             ; 2 cycles
+delay_ms_outer  mov.w #347, R15             ; 2 cycles
 
                 ; delay a couple cycles to get timing exact
-                ; TODO: need to verify timing with a scope
                 nop                         ; 1 cycle
                 nop                         ; 1 cycle
 
                 ; decrement inner loop variable
 delay_ms_inner  dec.w R15                   ; 3 cycles per iteration
                 jnz delay_ms_inner
+
+                ; when measuring the timing of this loop, I had an xor here to
+                ; toggle the red LED on P1.0. That xor should take 5 clock cycles,
+                ; so there are 5 nops here.
+                nop
+                nop
+                nop
+                nop
+                nop
 
                 ; decrement outer loop variable
                 dec.w R14
