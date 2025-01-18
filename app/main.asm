@@ -162,8 +162,9 @@ init_timer:
             ; setting mode control (MC) to stop mode disables the timer
             bis.w #MC__STOP, &TB0CTL
 
-            ; set compare register to 32,000 (1 second * 32 cycles/sec = 32,000 cycles)
-            mov.w #32000, &TB0CCR0
+            ; set compare register to achieve ~1 s timing.
+            ; The measured median timing was 0.99864 s.
+            mov.w #32900, &TB0CCR0
 
             ; enable capture/compare interrupt
             bis.w #CCIE, &TB0CCTL0
