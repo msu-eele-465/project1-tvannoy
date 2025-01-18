@@ -68,6 +68,7 @@
 ;-------------------------------------------------------------------------------
             .def    RESET                   ; Export program entry-point to
                                             ; make it known to linker.
+
             .global __STACK_END
             .sect   .stack                  ; Make stack linker segment ?known?
 
@@ -76,20 +77,107 @@
             .retainrefs
 
 RESET       mov.w   #__STACK_END,SP         ; Initialize stack pointer
-StopWDT     mov.w   #WDTPW+WDTHOLD,&WDTCTL  ; Stop WDT
-SetupP1     bic.b   #BIT0,&P1OUT            ; Clear P1.0 output
-            bis.b   #BIT0,&P1DIR            ; P1.0 output
-            bic.w   #LOCKLPM5,&PM5CTL0       ; Unlock I/O pins
 
-Mainloop    xor.b   #BIT0,&P1OUT            ; Toggle P1.0 every 0.1s
-Wait        mov.w   #50000,R15              ; Delay to R15
-L1          dec.w   R15                     ; Decrement R15
-            jnz     L1                      ; Delay over?
-            jmp     Mainloop                ; Again
-            NOP
+StopWDT     mov.w   #WDTPW+WDTHOLD,&WDTCTL  ; Stop WDT
+
+init:
+            ; set red LED (P1.0) as an output
+            bis.b   #BIT0, &P1DIR
+
+            ; set green LED (P6.6) as an output
+            bis.b   #BIT6, &P6DIR
+
+            ; Disable low-power mode
+            bic.w   #LOCKLPM5,&PM5CTL0
+
+            call #init_timer
+
+            ; enable global interrupts
+            ; use nop before and after setting GIE bit because the assembler tells us to
+            nop
+            bis.w #GIE, SR
+            nop
+
+main:
+
+            mov.w #1000, R14                ; set delay_ms to delay for 1000 ms (1 s)
+            call #delay_ms
+
+            xor.b   #BIT0,&P1OUT            ; Toggle P1.0 every 0.1s
+
+            jmp main
+            nop
+
+; delay_ms
+; Delay for a desired number of ms
+;
+; Inputs:
+;   
+delay_ms: 
+
+; inner loop timing calculation:
+;   3 cycles per iteration * 332 iterations = 996 cycles
+;   mov.w to setup loop counter: 2 cycles
+;   996 + 2 = 998 --> need two extra nop cycles
+
+                ; setup inner loop counter
+delay_ms_outer  mov.w #332, R15             ; 2 cycles
+
+                ; delay a couple cycles to get timing exact
+                ; TODO: need to verify timing with a scope
+                nop                         ; 1 cycle
+                nop                         ; 1 cycle
+
+                ; decrement inner loop variable
+delay_ms_inner  dec.w R15                   ; 3 cycles per iteration
+                jnz delay_ms_inner
+
+                ; decrement outer loop variable
+                dec.w R14
+                jnz delay_ms_outer
+
+                ret
+
+; initialize timer0_b0 to fire interrupts every 1 second
+; 
+; timer0_b0 defaults to compare mode
+init_timer:
+    ; NOTE: this configuration follows the order specified on page 407 (sec 14.2.7)
+    ; of msp430fr4xx/msp430fr2xx family user guide.
+
+            ; disable timer before configuring to avoid unexpected behavior
+            ; setting mode control (MC) to stop mode disables the timer
+            bis.w #MC__STOP, &TB0CTL
+
+            ; set compare register to 32,000 (1 second * 32 cycles/sec = 32,000 cycles)
+            mov.w #32000, &TB0CCR0
+
+            ; enable capture/compare interrupt
+            bis.w #CCIE, &TB0CCTL0
+
+            ; select 32 kHz auxiliary clock as clock source. By default, ACLK = REF0 = 32 kHz
+            bis.w #TBSSEL__ACLK, &TB0CTL
+
+            ; use up counter mode (will reset to 0 at 32,000)
+            bis.w #MC__UP, &TB0CTL
+
+            ret
+
+
+toggle_green_led_isr:
+            ; toggle green led on p6.6
+            xor.b #BIT6, &P6OUT
+
+            ; clear interrupt flag
+            bic.w #CCIFG, &TB0CCTL0
+
+            reti
+
 ;------------------------------------------------------------------------------
 ;           Interrupt Vectors
 ;------------------------------------------------------------------------------
             .sect   RESET_VECTOR            ; MSP430 RESET Vector
             .short  RESET                   ;
-            .end
+
+            .sect TIMER0_B0_VECTOR
+            .short toggle_green_led_isr
